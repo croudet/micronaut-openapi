@@ -18,6 +18,8 @@ package io.micronaut.openapi.visitor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import io.micronaut.ast.groovy.visitor.GroovyClassElementExt;
+import io.micronaut.annotation.processing.visitor.JavaClassElementExt;
 import io.micronaut.context.env.DefaultPropertyPlaceholderResolver;
 import io.micronaut.context.env.PropertyPlaceholderResolver;
 import io.micronaut.core.annotation.AnnotationValue;
@@ -45,7 +47,6 @@ import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.annotation.QueryValue;
-import io.micronaut.http.annotation.UriMapping;
 import io.micronaut.http.uri.UriMatchTemplate;
 import io.micronaut.http.uri.UriMatchVariable;
 import io.micronaut.inject.ast.ClassElement;
@@ -81,6 +82,7 @@ import io.swagger.v3.oas.models.servers.Server;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.lang.model.element.TypeElement;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.security.Principal;
@@ -101,18 +103,60 @@ import java.util.stream.Collectors;
  * @since 1.0
  */
 @Experimental
-public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements TypeElementVisitor<Controller, HttpMethodMapping> {
-    private static final String CLASS_TAGS = "MICRONAUT_OPENAPI_CLASS_TAGS";
+public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements TypeElementVisitor<Controller, Object> {
 
+    private List<io.swagger.v3.oas.models.tags.Tag> classTags = Collections.emptyList();
     private PropertyPlaceholderResolver propertyPlaceholderResolver;
 
     @Override
-    public void visitClass(ClassElement element, VisitorContext context) {
-        processSecuritySchemes(element, context);
-        context.put(CLASS_TAGS, readTags(element, context));
+    public void finish(VisitorContext visitorContext) {
+        classTags = null;
     }
 
-    private boolean hasNoBindingAnnotationOrType(ParameterElement parameter) {
+    @Override
+    public void visitClass(ClassElement element, VisitorContext context) {
+        if (!element.hasAnnotation(Controller.class)) {
+            return;
+        }
+        processSecuritySchemes(element, context);
+        classTags = readTags(element, context);
+        // Issue #193 - Inherited methods are not processed
+        List<MethodElement> classMethods;
+        if ("io.micronaut.annotation.processing.visitor.JavaClassElement".equals(element.getClass().getName()) &&
+            "io.micronaut.annotation.processing.visitor.JavaVisitorContext".equals(context.getClass().getName())) {
+            TypeElement t = (TypeElement) element.getNativeType();
+            if (t.getAnnotation(Controller.class) == null) {
+                return;
+            }
+            classMethods = processJavaClassElement(element, context);
+        } else {
+            classMethods = processGroovyClassElement(element);
+        }
+        for (MethodElement methodElement: classMethods) {
+            doVisitMethod(methodElement, context);
+        }
+    }
+
+    private List<MethodElement> processJavaClassElement(ClassElement element, VisitorContext context) {
+        return checkMethodElements(new JavaClassElementExt(element, context).getMethods());
+    }
+
+    private List<MethodElement> processGroovyClassElement(ClassElement element) {
+        return checkMethodElements(new GroovyClassElementExt(element).getMethods());
+    }
+
+    private List<MethodElement> checkMethodElements(List<MethodElement> methodElements) {
+        List<MethodElement> classMethods = new ArrayList<>(methodElements.size());
+        for (MethodElement methodElement : methodElements) {
+            if (methodElement.isAnnotationPresent(Hidden.class) || !methodElement.hasStereotype(HttpMethodMapping.class)) {
+                continue;
+            }
+            classMethods.add(methodElement);
+        }
+        return classMethods;
+    }
+
+    private boolean hasNoBindingAnnotationOrType(ParameterElement parameter, ClassElement parameterType) {
         return !parameter.isAnnotationPresent(io.swagger.v3.oas.annotations.Parameter.class) &&
                !parameter.isAnnotationPresent(io.swagger.v3.oas.annotations.parameters.RequestBody.class) &&
                !parameter.isAnnotationPresent(Hidden.class) &&
@@ -124,10 +168,10 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
                !parameter.isAnnotationPresent(CookieValue.class) &&
                !parameter.isAnnotationPresent(Header.class) &&
 
-               !isIgnoredParameterType(parameter.getType()) &&
-               !isResponseType(parameter.getType()) &&
-               !parameter.getType().isAssignable(HttpRequest.class) &&
-               !parameter.getType().isAssignable("io.micronaut.http.BasicAuth");
+               !isIgnoredParameterType(parameterType) &&
+               !isResponseType(parameterType) &&
+               !parameterType.isAssignable(HttpRequest.class) &&
+               !parameterType.isAssignable("io.micronaut.http.BasicAuth");
     }
 
     private HttpMethod httpMethod(MethodElement element) {
@@ -144,18 +188,27 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (element.isAnnotationPresent(Hidden.class)) {
-            return;
-        }
+    }
 
+    private void doVisitMethod(MethodElement element, VisitorContext context) {
         HttpMethod httpMethod = httpMethod(element);
         if (httpMethod == null) {
             return;
         }
-        String controllerValue = element.getDeclaringType().getValue(UriMapping.class, String.class).orElse("/");
+        String controllerValue;
+        Optional<String> cv = element.getDeclaringType().getValue(Controller.class, String.class);
+        if (cv.isPresent()) {
+            controllerValue = cv.get();
+        } else {
+            cv = element.getOwningType().getValue(Controller.class, String.class);
+            if (cv.isPresent()) {
+                controllerValue = cv.get();
+            } else {
+                return;
+            }
+        }
         controllerValue = getPropertyPlaceholderResolver().resolvePlaceholders(controllerValue).orElse(controllerValue);
         UriMatchTemplate matchTemplate = UriMatchTemplate.of(controllerValue);
         String methodValue = element.getValue(HttpMethodMapping.class, String.class).orElse("/");
@@ -173,7 +226,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
         if (StringUtils.isEmpty(swaggerOperation.getOperationId())) {
             swaggerOperation.setOperationId(element.getName());
         }
-        readTags(element, swaggerOperation, context.get(CLASS_TAGS, List.class, Collections.emptyList()));
+        readTags(element, swaggerOperation, classTags);
         for (SecurityRequirement securityItem : readSecurityRequirements(element)) {
             swaggerOperation.addSecurityItem(securityItem);
         }
@@ -219,8 +272,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
             } else {
                 okResponse.setDescription(javadocDescription.getReturnDescription());
             }
-
-            ClassElement returnType = element.getReturnType();
+            ClassElement returnType = element.getGenericReturnType();
             if (returnType.isAssignable("io.reactivex.Completable")) {
                 returnType = null;
             } else if (isResponseType(returnType)) {
@@ -243,6 +295,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
             responses.put(ApiResponses.DEFAULT, okResponse);
         }
 
+
         boolean permitsRequestBody = HttpMethod.permitsRequestBody(httpMethod);
 
         if (permitsRequestBody) {
@@ -256,8 +309,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
         }
 
         for (ParameterElement parameter : element.getParameters()) {
-
-            ClassElement parameterType = parameter.getType();
+            ClassElement parameterType = parameter.getGenericType();
             String parameterName = parameter.getName();
 
             if (isIgnoredParameterType(parameterType)) {
@@ -340,7 +392,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
                 String queryVar = parameter.getValue(QueryValue.class, String.class).orElse(parameterName);
                 newParameter = new QueryParameter();
                 newParameter.setName(queryVar);
-            } else if (!permitsRequestBody && hasNoBindingAnnotationOrType(parameter)) {
+            } else if (!permitsRequestBody && hasNoBindingAnnotationOrType(parameter, parameterType)) {
                 // default to QueryValue -
                 // https://github.com/micronaut-projects/micronaut-openapi/issues/130
                 newParameter = new QueryParameter();
@@ -446,7 +498,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiVisitor implements 
                 }
 
                 if (schema != null) {
-                    bindSchemaForElement(context, parameter, parameter.getType(), schema);
+                    bindSchemaForElement(context, parameter, parameterType, schema);
                     newParameter.setSchema(schema);
                 }
             }

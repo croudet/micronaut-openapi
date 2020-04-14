@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
 import javax.lang.model.element.*;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -71,6 +70,52 @@ public class JavaClassElementExt extends JavaClassElement {
         this.classElement = (TypeElement) jce.getNativeType();
         this.visitorContext = visitorContext;
         this.genericTypeInfo = jce.getGenericTypeInfo();
+    }
+
+    /**
+     * Returns the methods of this class.
+     * @return A list of methods.
+     */
+    public List<MethodElement> getMethods() {
+        List<MethodElement> fields = new ArrayList<>();
+        classElement.asType().accept(new PublicMethodVisitor<Object, Object>(visitorContext.getTypes()) {
+            List<ExecutableElement> methods = new ArrayList<>();
+            @Override
+            protected boolean isAcceptable(javax.lang.model.element.Element element) {
+                boolean isMethod = element.getKind() == ElementKind.METHOD && element instanceof ExecutableElement;
+                if (isMethod) {
+                    Set<Modifier> modifiers = element.getModifiers();
+                    if (modifiers.contains(Modifier.PUBLIC) && !modifiers.contains(Modifier.STATIC) && !modifiers.contains(Modifier.ABSTRACT)) {
+                        ExecutableElement executableElement = (ExecutableElement) element;
+                        String methodName = executableElement.getSimpleName().toString();
+                        if (methodName.contains("$")) {
+                            return false;
+                        }
+                        methods.add(executableElement);
+                    }
+                }
+                return isMethod;
+            }
+
+            @Override
+            protected void accept(DeclaredType type, Element element, Object o) {
+                ExecutableElement executableElement = (ExecutableElement) element;
+                Elements elements = visitorContext.getElements();
+                for (ExecutableElement method: methods) {
+                    if (method.equals(executableElement)) {
+                        continue;
+                    }
+                    if (elements.overrides(method, executableElement, (TypeElement) method.getEnclosingElement())) {
+                        return;
+                    }
+                }
+                final AnnotationMetadata fieldMetadata = visitorContext.getAnnotationUtils().getAnnotationMetadata(element);
+                fields.add(new JavaMethodElement(JavaClassElementExt.this.javaClassElement, executableElement, fieldMetadata, visitorContext));
+            }
+
+        }, null);
+
+        return Collections.unmodifiableList(fields);
     }
 
     /**

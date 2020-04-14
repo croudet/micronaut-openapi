@@ -29,7 +29,6 @@ class OpenApiInheritedPojoControllerSpec extends AbstractTypeElementSpec {
         System.setProperty(AbstractOpenApiVisitor.ATTR_TEST_MODE, "true")
     }
 
-    @Ignore
     void "test controller inheritance with generics - Issue #193"() {
         given: "An API definition"
 
@@ -37,8 +36,14 @@ class OpenApiInheritedPojoControllerSpec extends AbstractTypeElementSpec {
         buildBeanDefinition('test.MyBean', '''
 package test;
 
+import javax.annotation.Nullable;
+
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.QueryValue;
 
 class BaseObject {
     private int a;
@@ -69,7 +74,7 @@ class TestOperations extends BaseTestOperations<B> {
 
     @Get("/fromBaseNoGet")
     @Override
-    public B getFromBaseNoGet() {
+    public B getFromBaseNoAnnot() {
         return null;
     }
 
@@ -77,21 +82,45 @@ class TestOperations extends BaseTestOperations<B> {
     public B getOnlyFromB() {
         return null;
     }
+
+    @Override
+    @Get("/fromBaseWithAnnotOverrideB")
+    public B getFromBaseWithAnnotOverride() {
+        return null;
+    }
+
+    @Override
+    public B getFromBaseWithNoAnnotOverride() {
+        return null;
+    }
 }
 
 abstract class BaseTestOperations<T extends BaseObject> {
-
     @Get("/fromBaseOnly")
-    public T getFromBase() {
+    public T getFromBaseWithAnnot() {
         return null;
     }
 
-    public T getFromBaseNoGet() {
+    @Post("/postFromBaseOnly{?foo}")
+    public HttpResponse<T> postFromBaseWithAnnot(@Body T value, @QueryValue @Nullable String foo) {
         return null;
     }
 
-    @Get("/fromBaseOnlyNoOverride")
-    public T getFromBaseNoOverride() {
+    public T getFromBaseNoAnnot() {
+        return null;
+    }
+
+    public T getFromBaseNoAnnotNoOverride() {
+        return null;
+    }
+
+    @Get("/fromBaseWithAnnotOverride")
+    public T getFromBaseWithAnnotOverride() {
+        return null;
+    }
+
+    @Get("/fromBaseWithNoAnnotOverride")
+    public T getFromBaseWithNoAnnotOverride() {
         return null;
     }
 }
@@ -107,6 +136,7 @@ class MyBean {}
         Schema bSchema = openAPI.components.schemas['B']
 
         then: "the components are valid"
+        openAPI.paths.size() == 6
         baseSchema != null
         bSchema != null
 
@@ -122,7 +152,7 @@ class MyBean {}
         fromBaseOnlyOperation.responses."default".content."application/json"
         fromBaseOnlyOperation.responses."default".content."application/json".schema
         fromBaseOnlyOperation.responses."default".content."application/json".schema.$ref
-        fromBaseOnlyOperation.responses."default".content."application/json".schema.$ref == '#/components/schemas/BaseObject'
+        fromBaseOnlyOperation.responses."default".content."application/json".schema.$ref == '#/components/schemas/B'
 
         when:
         Operation fromBaseNoGetOperation = openAPI.paths.get("/fromTestOperations/fromBaseNoGet").get
