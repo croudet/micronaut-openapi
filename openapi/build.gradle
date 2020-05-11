@@ -4,6 +4,7 @@ dependencies {
     
     compileOnly "io.micronaut:micronaut-management"
     compileOnly "io.micronaut:micronaut-inject-java"
+    compileOnly "io.micronaut:micronaut-inject-groovy"
 
     implementation "io.micronaut:micronaut-http"
     api "io.swagger.core.v3:swagger-core:$swaggerVersion"

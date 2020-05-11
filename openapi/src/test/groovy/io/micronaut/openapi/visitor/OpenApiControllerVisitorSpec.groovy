@@ -90,8 +90,30 @@ class Pet {
     public void setName(String name) { this.name = name; }
 }
 
-interface PetOperations {
- @Post
+interface PetUpdateOperations {
+
+   /**
+    * This method updates Pet.
+    */
+    @Post
+    @Operation(summary = "This method updates Pet. " +
+            " A successful request returns the response code 200." )
+    @Tag(name = "Pet Operations")
+    @RequestBody(description = "A Pet as Json")
+    @ApiResponse(content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = Pet.class)))
+    default HttpResponse<Pet> updatePet(@Body Pet pet) {
+        return null;
+    }
+}
+
+@Controller("/api/pet")
+interface PetOperations extends PetUpdateOperations {
+
+   /**
+    * This method creates a new Pet.
+    */
+    @Post
     @Operation(summary = "This method creates a new Pet. " +
             " A successful request returns the response code 200." )
     @Tag(name = "Pet Operations")
@@ -101,7 +123,6 @@ interface PetOperations {
     HttpResponse<Pet> createPet(@Body Pet pet);
 }
 
-@Controller("/api/pet")
 class PetController implements PetOperations {
     @Override
     public HttpResponse<Pet> createPet(final Pet pet) {

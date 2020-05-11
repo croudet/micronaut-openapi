@@ -15,7 +15,6 @@ class OpenApiInheritedPojoControllerSpec extends AbstractTypeElementSpec {
         System.setProperty(AbstractOpenApiVisitor.ATTR_TEST_MODE, "true")
     }
 
-    @Ignore
     void "test controller inheritance with generics - Issue #193"() {
         given: "An API definition"
 
@@ -69,6 +68,7 @@ class TestOperations extends BaseTestOperations<B> {
         return null;
     }
 }
+
 abstract class BaseTestOperations<T extends BaseObject> {
     @Get("/fromBaseOnly")
     public T getFromBaseWithAnnot() {
@@ -93,6 +93,7 @@ abstract class BaseTestOperations<T extends BaseObject> {
         return null;
     }
 }
+
 @javax.inject.Singleton
 class MyBean {}
 ''')

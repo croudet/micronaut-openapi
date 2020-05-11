@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import io.micronaut.annotation.processing.visitor.JavaClassElementExt;
+import io.micronaut.ast.groovy.visitor.GroovyUtils;
 import io.micronaut.context.env.DefaultPropertyPlaceholderResolver;
 import io.micronaut.context.env.PropertyPlaceholderResolver;
 import io.micronaut.core.annotation.AnnotationValue;
@@ -109,6 +110,14 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
         }
         processSecuritySchemes(element, context);
         processTags(element, context);
+        scanMethods(element, context);
+    }
+
+    private void scanMethods(ClassElement element, VisitorContext context) {
+        List<MethodElement> classMethods = isJavaElement(element, context) ? new JavaClassElementExt(element, context).getCandidateMethods() : GroovyUtils.getCandidateMethods(element);
+        for (MethodElement method : classMethods) {
+            doVisitMethod(method, context);
+        }
     }
 
     private void processTags(ClassElement element, VisitorContext context) {
@@ -216,14 +225,18 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
                !parameter.isAnnotationPresent(CookieValue.class) &&
                !parameter.isAnnotationPresent(Header.class) &&
 
-               !isIgnoredParameterType(parameter.getType()) &&
-               !isResponseType(parameter.getType()) &&
-               !parameter.getType().isAssignable(HttpRequest.class) &&
-               !parameter.getType().isAssignable("io.micronaut.http.BasicAuth");
+               !isIgnoredParameterType(parameter.getGenericType()) &&
+               !isResponseType(parameter.getGenericType()) &&
+               !parameter.getGenericType().isAssignable(HttpRequest.class) &&
+               !parameter.getGenericType().isAssignable("io.micronaut.http.BasicAuth");
     }
 
-    @Override
-    public void visitMethod(MethodElement element, VisitorContext context) {
+    /**
+     * Visit the method.
+     * @param element A method.
+     * @param context The context.
+     */
+    public void doVisitMethod(MethodElement element, VisitorContext context) {
         if (ignore(element, context)) {
             return;
         }

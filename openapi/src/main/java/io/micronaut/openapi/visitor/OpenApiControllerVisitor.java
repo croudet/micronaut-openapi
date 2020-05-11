@@ -84,6 +84,7 @@ public class OpenApiControllerVisitor extends AbstractOpenApiEndpointVisitor<Con
         return mediaTypes(element, Produces.class);
     }
 
+    @SuppressWarnings("rawtypes")
     private List<MediaType> mediaTypes(MethodElement element, Class<? extends Annotation> ann) {
         OptionalValues<List> mts = element.getValues(ann, List.class);
         if (mts.isEmpty()) {
