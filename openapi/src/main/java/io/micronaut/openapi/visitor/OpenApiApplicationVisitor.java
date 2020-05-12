@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 
-import io.micronaut.annotation.processing.visitor.JavaClassElementExt;
 import io.micronaut.context.env.Environment;
 import io.micronaut.core.annotation.Experimental;
 import io.micronaut.core.util.StringUtils;
@@ -558,9 +557,7 @@ public class OpenApiApplicationVisitor extends AbstractOpenApiVisitor implements
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_CLASS_TAGS, endpoint.getTags());
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_SERVERS, endpoint.getServers());
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_SECURITY_REQUIREMENTS, endpoint.getSecurityRequirements());
-                visitor.visitClass(element, visitorContext);
-                JavaClassElementExt javaClassElement = new JavaClassElementExt(element, visitorContext);
-                javaClassElement.getCandidateMethods().forEach(method -> visitor.visitMethod(method, visitorContext));
+                visitor.visitClass(endpoint.getClassElement().get(), visitorContext);
             });
         }
     }

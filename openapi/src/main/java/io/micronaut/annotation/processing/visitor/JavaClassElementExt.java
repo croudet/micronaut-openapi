@@ -15,28 +15,7 @@
  */
 package io.micronaut.annotation.processing.visitor;
 
-import static javax.lang.model.type.TypeKind.NONE;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import javax.lang.model.element.*;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
-import javax.lang.model.type.WildcardType;
-import javax.lang.model.util.ElementFilter;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
-
 import io.micronaut.annotation.processing.AnnotationUtils;
 import io.micronaut.annotation.processing.PublicMethodVisitor;
 import io.micronaut.core.annotation.AnnotationMetadata;
@@ -240,12 +219,14 @@ public class JavaClassElementExt extends JavaClassElement {
                         value.declaringType == null ? this.javaClassElement : value.declaringType, value.getter,
                         annotationMetadata, propertyName, value.type, value.setter == null, visitorContext) {
                     @Override
+                    @Override
                     public Optional<String> getDocumentation() {
                         Elements elements = visitorContext.getElements();
                         String docComment = elements.getDocComment(value.getter);
                         return Optional.ofNullable(docComment);
                     }
 
+                    @Override
                     @Override
                     public Optional<MethodElement> getWriteMethod() {
                         if (value.setter != null) {
@@ -257,6 +238,7 @@ public class JavaClassElementExt extends JavaClassElement {
                         return Optional.empty();
                     }
 
+                    @Override
                     @Override
                     public Optional<MethodElement> getReadMethod() {
                         return Optional.of(new JavaMethodElement(JavaClassElementExt.this.javaClassElement,
