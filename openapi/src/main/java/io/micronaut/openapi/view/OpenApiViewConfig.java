@@ -117,7 +117,7 @@ public final class OpenApiViewConfig {
     /**
      * Generates the views given this configuration.
      * @param outputDir The destination directory of the generated views.
-     * @param visitorContext 
+     * @param visitorContext The context
      * @throws IOException When the generation fails.
      */
     public void render(Path outputDir, VisitorContext visitorContext) throws IOException {

@@ -301,7 +301,7 @@ public class OpenApiApplicationVisitor extends AbstractOpenApiVisitor implements
 
     private OpenAPI readOpenAPI(ClassElement element, VisitorContext context) {
         return element.findAnnotation(OpenAPIDefinition.class).flatMap(o -> {
-                    Optional<OpenAPI> result = toValue(o.getValues(), context, OpenAPI.class);
+                    Optional<OpenAPI> result = toValue(o.getValues(), context, OpenAPI.class, false);
                     result.ifPresent(openAPI -> {
                         List<io.swagger.v3.oas.models.security.SecurityRequirement> securityRequirements =
                                 o.getAnnotations("security", io.swagger.v3.oas.annotations.security.SecurityRequirement.class)

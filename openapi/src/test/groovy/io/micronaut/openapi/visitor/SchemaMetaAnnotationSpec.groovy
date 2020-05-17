@@ -140,13 +140,9 @@ class MyBean {}
         pathItem.post.requestBody.content['application/json'].schema.type == 'object'
         pathItem.post.requestBody.content['application/json'].schema.properties.size() == 1
         pathItem.post.requestBody.content['application/json'].schema.properties['uuid']
-        pathItem.post.requestBody.content['application/json'].schema.properties['uuid'].$ref  == '#/components/schemas/MyAnn'
-
-        openAPI.components.schemas['MyAnn']
-        openAPI.components.schemas['MyAnn'].type == 'string'
-        openAPI.components.schemas['MyAnn'].format == 'uuid'
+        pathItem.post.requestBody.content['application/json'].schema.properties['uuid'].type  == 'string'
+        pathItem.post.requestBody.content['application/json'].schema.properties['uuid'].format  == 'uuid'
     }
-
 
     void "test that it possible to define custom RequestBody annotations at the type level"() {
 

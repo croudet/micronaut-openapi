@@ -488,14 +488,14 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
 
                 if (newParameter == null) {
                     try {
-                        newParameter = treeToValue(jsonNode, Parameter.class);
+                        newParameter = treeToValue(jsonNode, Parameter.class, false);
                     } catch (Exception e) {
                         context.warn("Error reading Swagger Parameter for element [" + parameter + "]: "
                                 + e.getMessage(), parameter);
                     }
                 } else {
                     try {
-                        Parameter v = treeToValue(jsonNode, Parameter.class);
+                        Parameter v = treeToValue(jsonNode, Parameter.class, false);
                         if (v == null) {
                             BeanMap<Parameter> target = BeanMap.of(newParameter);
                             for (CharSequence name : paramValues.keySet()) {
@@ -640,7 +640,7 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
     private io.swagger.v3.oas.models.Operation readOperation(MethodElement element, VisitorContext context) {
         final Optional<AnnotationValue<Operation>> operationAnnotation = element.findAnnotation(Operation.class);
         io.swagger.v3.oas.models.Operation swaggerOperation = operationAnnotation
-                .flatMap(o -> toValue(o.getValues(), context, io.swagger.v3.oas.models.Operation.class))
+                .flatMap(o -> toValue(o.getValues(), context, io.swagger.v3.oas.models.Operation.class, false))
                 .orElse(new io.swagger.v3.oas.models.Operation());
 
         if (StringUtils.isEmpty(swaggerOperation.getOperationId())) {
@@ -742,7 +742,7 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
         if (CollectionUtils.isNotEmpty(responseAnnotations)) {
             ApiResponses apiResponses = new ApiResponses();
             for (AnnotationValue<io.swagger.v3.oas.annotations.responses.ApiResponse> r : responseAnnotations) {
-                Optional<ApiResponse> newResponse = toValue(r.getValues(), context, ApiResponse.class);
+                Optional<ApiResponse> newResponse = toValue(r.getValues(), context, ApiResponse.class, false);
                 newResponse.ifPresent(apiResponse ->
                         apiResponses.put(r.get("responseCode", String.class).orElse("default"), apiResponse));
             }
@@ -752,7 +752,7 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
 
     private Optional<RequestBody> readSwaggerRequestBody(Element element, VisitorContext context) {
         return element.findAnnotation(io.swagger.v3.oas.annotations.parameters.RequestBody.class)
-                .flatMap(annotation -> toValue(annotation.getValues(), context, RequestBody.class));
+                .flatMap(annotation -> toValue(annotation.getValues(), context, RequestBody.class, false));
     }
 
     private void readServers(MethodElement element, VisitorContext context, io.swagger.v3.oas.models.Operation swaggerOperation) {
@@ -812,7 +812,7 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
             for (AnnotationValue<Operation> operation : operations) {
                 final Optional<HttpMethod> operationMethod = operation.get("method", HttpMethod.class);
                 operationMethod.ifPresent(httpMethod -> toValue(operation.getValues(), context,
-                        io.swagger.v3.oas.models.Operation.class)
+                        io.swagger.v3.oas.models.Operation.class, false)
                                 .ifPresent(op -> setOperationOnPathItem(pathItem, op, httpMethod)));
             }
             Map<String, io.swagger.v3.oas.models.callbacks.Callback> callbacks = initCallbacks(
@@ -849,7 +849,7 @@ public abstract class AbstractOpenApiEndpointVisitor<C, E> extends AbstractOpenA
 
     private List<io.swagger.v3.oas.models.tags.Tag> readTags(ClassElement element, VisitorContext context) {
         return element.getAnnotationValuesByType(Tag.class).stream()
-                .map(av -> toValue(av.getValues(), context, io.swagger.v3.oas.models.tags.Tag.class))
+                .map(av -> toValue(av.getValues(), context, io.swagger.v3.oas.models.tags.Tag.class, false))
                 .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
     }
 
