@@ -547,13 +547,14 @@ public class OpenApiApplicationVisitor extends AbstractOpenApiVisitor implements
 
     private void processEndpoints(VisitorContext visitorContext) {
         EndpointsConfiguration endpointsCfg = endPointsConfiguration(visitorContext);
-        if (endpointsCfg.isEnabled() && ! endpointsCfg.getEndpoints().isEmpty()) {
+        if ("io.micronaut.annotation.processing.visitor.JavaVisitorContext".equals(visitorContext.getClass().getName())
+                && endpointsCfg.isEnabled()
+                && ! endpointsCfg.getEndpoints().isEmpty()) {
             OpenApiEndpointVisitor visitor = new OpenApiEndpointVisitor();
             endpointsCfg.getEndpoints().values().stream()
             .filter(endpoint -> endpoint.getClassElement().isPresent()
                     && "io.micronaut.annotation.processing.visitor.JavaClassElement".equals(endpoint.getClassElement().get().getClass().getName()))
             .forEach(endpoint -> {
-                ClassElement element = endpoint.getClassElement().get();
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_CLASS_TAGS, endpoint.getTags());
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_SERVERS, endpoint.getServers());
                 visitorContext.put(MICRONAUT_OPENAPI_ENDPOINT_SECURITY_REQUIREMENTS, endpoint.getSecurityRequirements());
@@ -563,6 +564,7 @@ public class OpenApiApplicationVisitor extends AbstractOpenApiVisitor implements
     }
 
     static class LowerCamelCasePropertyNamingStrategy extends PropertyNamingStrategyBase {
+        private static final long serialVersionUID = -2750503285679998670L;
 
         @Override
         public String translate(String propertyName) {
